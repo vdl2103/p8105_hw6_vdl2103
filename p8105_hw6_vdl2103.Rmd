@@ -1,0 +1,58 @@
+---
+title: "p8105 Homework 6"
+output: github_document
+author: Tory Lynch
+date: November 26, 2018
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+#### Problem 1
+```{r data, message = FALSE, warning = FALSE}
+#Load and clean data 
+homicide_data = read_csv("data/homicide-data.csv", na = c("", "NA", "Unknown")) %>% 
+  mutate(
+    city_state = str_c(city, state, sep = ", "), 
+    resolution = case_when(
+      disposition == "Closed without arrest" ~ "unsolved", 
+      disposition == "Open/No arrest" ~ "unsolved", 
+      disposition == "Closed by arrest" ~ "solved"
+    )
+  ) %>% 
+  filter(!city_state %in% c("Dallas, TX", "Phoenix, AZ", "Kansas City, MO", "Tulsa, AL")) %>% 
+  mutate(
+    race = as.factor(case_when(
+      victim_race == "White" ~ "white", 
+      victim_race != "White" ~ "non-white"
+    ))
+  ) %>% 
+  mutate(age = as.numeric(victim_age)) %>% 
+  mutate(race = fct_relevel(race, "white")) %>% 
+  mutate(sex = fct_relevel(victim_sex, "Female")) %>% 
+  mutate(resolution = fct_relevel(resolution, "unsolved"))
+```
+
+```{r}
+logistic_model = homicide_data %>% 
+  filter(city_state == "Baltimore, MD") %>% 
+  glm(resolution ~ age + sex + race, data = ., family = binomial())
+
+logistic_model %>% 
+  broom::tidy(., conf.int = TRUE) %>% 
+  mutate(
+    OR = exp(estimate), 
+    ci.high = exp(conf.high),
+    ci.low = exp(conf.low)
+  ) %>% 
+  select(term, estimate, OR, ci.high, ci.low) %>% 
+ knitr:: kable(digits = 4)
+```
+
+
+```{r}
+
+```
+
