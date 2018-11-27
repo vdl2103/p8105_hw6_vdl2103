@@ -8,6 +8,9 @@ date: November 26, 2018
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(modelr)
+library(mgcv)
+library(MASS)
 ```
 
 #### Problem 1
@@ -35,6 +38,7 @@ homicide_data = read_csv("data/homicide-data.csv", na = c("", "NA", "Unknown")) 
   mutate(resolution = fct_relevel(resolution, "unsolved"))
 ```
 
+##### Logistic model for Baltimore, MD
 ```{r}
 logistic_model = homicide_data %>% 
   filter(city_state == "Baltimore, MD") %>% 
@@ -47,12 +51,61 @@ logistic_model %>%
     ci.high = exp(conf.high),
     ci.low = exp(conf.low)
   ) %>% 
-  select(term, estimate, OR, ci.high, ci.low) %>% 
+  dplyr::select(term, OR, ci.high, ci.low) %>% 
  knitr:: kable(digits = 4)
 ```
 
-
+##### Logistic model for all cities 
 ```{r}
-
+ homicide_data %>% 
+  group_by(city_state) %>% 
+  nest() %>% 
+  mutate(model = map(data, ~glm(resolution ~ race + age + sex, data = ., family = binomial())),
+         model = map(model, broom::tidy, conf.int = TRUE)) %>% 
+  dplyr::select(-data) %>%    
+  unnest() %>% 
+  mutate(
+    OR = exp(estimate), 
+    ci.high = exp(conf.high),
+    ci.low = exp(conf.low)
+  ) %>% 
+  filter(term == "racenon-white") %>% 
+  dplyr::select(city_state, term, OR, ci.high, ci.low) %>% 
+ knitr:: kable(digits = 4)
 ```
+```{r}
+ nested_homicide_data = homicide_data %>% 
+  group_by(city_state) %>% 
+  nest() %>% 
+  mutate(model = map(data, ~glm(resolution ~ race, data = ., family = binomial())),
+         model = map(model, broom::tidy, conf.int = TRUE)) %>% 
+  dplyr::select(-data) %>%    
+  unnest() %>% 
+  mutate(
+    OR = exp(estimate), 
+    ci.high = exp(conf.high),
+    ci.low = exp(conf.low)
+  ) %>% 
+  filter(term == "racenon-white") %>% 
+  dplyr::select(city_state, term, OR, ci.high, ci.low) 
 
+nested_homicide_data %>% 
+  knitr::kable(digitis = 3)
+```
+ 
+```{r}
+nested_homicide_data %>% 
+  mutate(city_state = fct_reorder(city_state, OR)) %>% 
+  ggplot(aes(x = city_state, y = OR)) + 
+  geom_point() + 
+  geom_errorbar(aes(ymin = ci.low, ymax = ci.high)) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+  labs(
+    title = "Odds of solving homicides of non-white victims compared to white victims
+    in 47 American cities between 2007 - 2015",
+    x = "City", 
+    y = "Adjusted OR", 
+    caption = "data source: Washington Post"
+  )
+```
+ 
