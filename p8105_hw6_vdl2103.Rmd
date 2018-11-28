@@ -14,7 +14,7 @@ library(MASS)
 ```
 
 #### Problem 1
-```{r load and clean data, message = FALSE}
+```{r load and clean homicide data, message = FALSE}
 #Load and clean data 
 homicide_data = read_csv("data/homicide-data.csv", na = c("", "NA", "Unknown")) %>% 
   mutate(
@@ -49,10 +49,11 @@ logistic_model %>%
   mutate(
     OR = exp(estimate), 
     ci.high = exp(conf.high),
-    ci.low = exp(conf.low)
-  ) %>% 
+    ci.low = exp(conf.low)) %>% 
   dplyr::select(term, OR, ci.high, ci.low) %>% 
- knitr:: kable(digits = 4)
+  mutate(term = str_replace(term, "racenon-white", "race: non-white")) %>% 
+  mutate(term = str_replace(term, "sexMale", "sex: male")) %>% 
+  knitr::kable(digits = 4)
 ```
 
 ##### Logistic model for all cities 
@@ -143,7 +144,7 @@ nested_unadj_homicide %>%
 ```
  
 #### Problem 2 
-```{r load and clean data, message = FALSE}
+```{r load and clean birthwt data, message = FALSE}
 birthwt_data = read_csv("data/birthweight.csv", na = c("", "NA", "Unknown")) %>% 
   dplyr::select(bwt, fincome, frace, mrace, gaweeks, smoken, blength, bhead, babysex) %>% 
   mutate(
@@ -164,23 +165,39 @@ birthwt_data = read_csv("data/birthweight.csv", na = c("", "NA", "Unknown")) %>%
   mutate(race_m = fct_relevel(mrace, "white")) %>% 
   mutate(race_f = fct_relevel(frace, "white"))
 
-colMeans(is.na(birthwt_data))
+
 ```
 
 There are no missing data. 
+```{r}
+colMeans(is.na(birthwt_data)) %>% 
+  knitr::kable()
+```
 
+I hypothesized that variables related to socioeconomic status have a significant effect on birthweight. I selected race (mother and father), income, number of cigarettes smoked per day during pregnancy and gestational weeks as the variables that best capture SES among those in the birthweight dataset. I included gestational age as a proxy for SES variables related to a mother's underlying health and her access to quality healthcare; women with limited access to quality healthcare and pre-existing health conditions may be more likley to have babies with shorter gestational periods. 
+
+I ran a linear regression with just the SES-related variables (full model). I also used stepwise linear regression, with stepwise selection, to identify the subset of the SES-related variables that leads to the best performing model according to AIC (step model). 
 ```{r SES regression models}
 SES_var = birthwt_data %>% 
   dplyr::select(bwt, race_m, race_f, fincome, gaweeks, smoken)
 
 full_model = lm(bwt ~ ., data = SES_var)
 step_model = stepAIC(full_model, direction = "both", trace = FALSE)
-summary(step_model) %>% broom::tidy() 
+summary(step_model) %>% 
+  broom::tidy() %>% 
+  mutate(term = str_replace(term, "race_mnon-white", "Race: non-white")) %>% 
+  mutate(term = str_replace(term, "fincome", "Income")) %>% 
+  mutate(term = str_replace(term, "gaweeks", "Gestational weeks")) %>% 
+  mutate(term = str_replace(term, "smoken", "Cigarettes smoked per day")) %>% 
+  knitr::kable(digits = 4)
 ```
 
-```{r}
-summary(step_model) %>% broom::glance()
+```{r SES model fit statistics}
+summary(step_model) %>% 
+  broom::glance() %>% 
+  knitr::kable(digits = 4)
 ```
+
 ```{r}
 
 ```
