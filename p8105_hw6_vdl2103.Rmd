@@ -11,10 +11,12 @@ library(tidyverse)
 library(modelr)
 library(mgcv)
 library(MASS)
+library(kableExtra)
+library(formattable)
 ```
 
 #### Problem 1
-```{r data, message = FALSE, warning = FALSE}
+```{r load and clean data, message = FALSE}
 #Load and clean data 
 homicide_data = read_csv("data/homicide-data.csv", na = c("", "NA", "Unknown")) %>% 
   mutate(
@@ -39,7 +41,7 @@ homicide_data = read_csv("data/homicide-data.csv", na = c("", "NA", "Unknown")) 
 ```
 
 ##### Logistic model for Baltimore, MD
-```{r}
+```{r Baltimore model}
 logistic_model = homicide_data %>% 
   filter(city_state == "Baltimore, MD") %>% 
   glm(resolution ~ age + sex + race, data = ., family = binomial())
@@ -56,8 +58,12 @@ logistic_model %>%
 ```
 
 ##### Logistic model for all cities 
-```{r}
- homicide_data %>% 
+I ran adjusted and unadjusted logistic regression models that showed the odds of homicides being resolved for non-white victims compared to white victims. The adjusted models took into account the age and sex of the victim, while the uadjusted model did not. 
+
+###### Adjusted for age and sex 
+```{r all cities: adj model}
+#Model adjusted for age and sex
+nested_adjusetd_homicide = homicide_data %>% 
   group_by(city_state) %>% 
   nest() %>% 
   mutate(model = map(data, ~glm(resolution ~ race + age + sex, data = ., family = binomial())),
@@ -70,11 +76,36 @@ logistic_model %>%
     ci.low = exp(conf.low)
   ) %>% 
   filter(term == "racenon-white") %>% 
-  dplyr::select(city_state, term, OR, ci.high, ci.low) %>% 
- knitr:: kable(digits = 4)
+  dplyr::select(city_state, OR, ci.high, ci.low) 
+
+  nested_adjusetd_homicide %>% 
+    knitr::kable(digits = 3, 
+               col.names = c("City", "OR", "High CI", "Low CI"))
 ```
-```{r}
- nested_homicide_data = homicide_data %>% 
+
+```{r adj model plot}
+#Plot for adjusted model 
+ nested_adjusetd_homicide %>% 
+  mutate(city_state = fct_reorder(city_state, OR)) %>% 
+  ggplot(aes(x = city_state, y = OR)) + 
+  geom_point() + 
+  geom_errorbar(aes(ymin = ci.low, ymax = ci.high)) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  labs(
+    title = "Odds of solving homicides of non-white victims compared to white victims
+    in 47 American cities between 2007 - 2015",
+    x = "City", 
+    y = "Adjusted OR", 
+    caption = "Data source: Washington Post
+               Model adjusted for race and age"
+  )
+```
+
+###### Unadjusted model 
+```{r all cities: unadj model}
+#Unadjusted model 
+ nested_unadj_homicide = homicide_data %>% 
   group_by(city_state) %>% 
   nest() %>% 
   mutate(model = map(data, ~glm(resolution ~ race, data = ., family = binomial())),
@@ -87,25 +118,31 @@ logistic_model %>%
     ci.low = exp(conf.low)
   ) %>% 
   filter(term == "racenon-white") %>% 
-  dplyr::select(city_state, term, OR, ci.high, ci.low) 
+  dplyr::select(city_state, OR, ci.high, ci.low) 
 
-nested_homicide_data %>% 
-  knitr::kable(digitis = 3)
+nested_unadj_homicide %>% 
+  knitr::kable(digits = 3, 
+               col.names = c("City", "OR", "High CI", "Low CI"))
 ```
  
-```{r}
-nested_homicide_data %>% 
+```{r unadj model plot}
+#Unadjusted model plot
+  nested_unadj_homicide %>% 
   mutate(city_state = fct_reorder(city_state, OR)) %>% 
   ggplot(aes(x = city_state, y = OR)) + 
   geom_point() + 
   geom_errorbar(aes(ymin = ci.low, ymax = ci.high)) + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+  theme(plot.title = element_text(hjust = 0.5)) +
   labs(
     title = "Odds of solving homicides of non-white victims compared to white victims
     in 47 American cities between 2007 - 2015",
     x = "City", 
-    y = "Adjusted OR", 
-    caption = "data source: Washington Post"
+    y = "OR", 
+    caption = "Data source: Washington Post
+               Unadjusted model"
   )
 ```
  
+ 
+ #
