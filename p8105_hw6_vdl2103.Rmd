@@ -11,8 +11,6 @@ library(tidyverse)
 library(modelr)
 library(mgcv)
 library(MASS)
-library(kableExtra)
-library(formattable)
 ```
 
 #### Problem 1
@@ -144,5 +142,46 @@ nested_unadj_homicide %>%
   )
 ```
  
- 
- #
+#### Problem 2 
+```{r load and clean data, message = FALSE}
+birthwt_data = read_csv("data/birthweight.csv", na = c("", "NA", "Unknown")) %>% 
+  dplyr::select(bwt, fincome, frace, mrace, gaweeks, smoken, blength, bhead, babysex) %>% 
+  mutate(
+    babysex = as.factor(case_when(
+      babysex == 2 ~ "female", 
+      babysex == 1 ~ "male"
+    )), 
+    frace = as.factor(case_when(
+      frace == 1 ~ "white", 
+      frace != 1 ~ "non-white"
+    )), 
+    mrace = as.factor(case_when(
+      mrace == 1 ~ "white", 
+      mrace != 1 ~ "non-white"
+    ))
+  ) %>% 
+  mutate(sex = fct_relevel(babysex, "female")) %>% 
+  mutate(race_m = fct_relevel(mrace, "white")) %>% 
+  mutate(race_f = fct_relevel(frace, "white"))
+
+colMeans(is.na(birthwt_data))
+```
+
+There are no missing data. 
+
+```{r SES regression models}
+SES_var = birthwt_data %>% 
+  dplyr::select(bwt, race_m, race_f, fincome, gaweeks, smoken)
+
+full_model = lm(bwt ~ ., data = SES_var)
+step_model = stepAIC(full_model, direction = "both", trace = FALSE)
+summary(step_model) %>% broom::tidy() 
+```
+
+```{r}
+summary(step_model) %>% broom::glance()
+```
+```{r}
+
+```
+
